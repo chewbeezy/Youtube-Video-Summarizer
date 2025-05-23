@@ -11,21 +11,50 @@ const app = express();
 app.use(helmet());
 app.use(express.json({ limit: '10kb' }));
 
-// Rate limiting (100 requests per 15 minutes)
+// Rate limiting (more generous for free tier)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 150, // Increased from 100 to be more generous
   standardHeaders: true,
   legacyHeaders: false,
+  message: {
+    status: "error",
+    message: "Too many requests, please try again later."
+  }
 });
 app.use(limiter);
 
-// Root route to handle GET /
+// Welcome route with attractive response
 app.get('/', (req, res) => {
-  res.send('Welcome to the Youtube Video Summarizer API! Use the /summarize endpoint.');
+  res.json({
+    status: "success",
+    message: "🎥 YouTube Video Summarizer API",
+    description: "Free AI-powered video summarization service",
+    endpoints: {
+      summarize: {
+        method: "POST",
+        path: "/summarize",
+        description: "Get AI-generated summaries from video transcripts",
+        parameters: {
+          videoTranscript: "string (50-15000 chars)",
+          summaryType: "optional (concise|detailed|bullet-points)"
+        }
+      },
+      health: {
+        method: "GET",
+        path: "/health",
+        description: "Check API status"
+      }
+    },
+    tips: [
+      "Keep transcripts under 15,000 characters for best results",
+      "Try different summaryTypes to get varied outputs",
+      "This is a free service with rate limits (150 requests/15 mins)"
+    ]
+  });
 });
 
-// Initialize OpenAI with error handling
+// Initialize OpenAI
 let openai;
 try {
   const configuration = new Configuration({
@@ -37,7 +66,7 @@ try {
   process.exit(1);
 }
 
-// Validation and sanitization middleware
+// Validation middleware
 const validateRequest = [
   body('videoTranscript')
     .isString().withMessage('Transcript must be a string')
@@ -49,18 +78,23 @@ const validateRequest = [
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ 
+        status: "error",
+        errors: errors.array().map(err => ({
+          param: err.param,
+          message: err.msg
+        }))
+      });
     }
     next();
   }
 ];
 
-// Improved summarization endpoint
+// Enhanced summarization endpoint
 app.post('/summarize', validateRequest, async (req, res) => {
   const { videoTranscript, summaryType = 'detailed' } = req.body;
 
   try {
-    // Dynamic prompt based on summary type
     const prompt = buildSummaryPrompt(videoTranscript, summaryType);
     
     const startTime = Date.now();
@@ -69,11 +103,11 @@ app.post('/summarize', validateRequest, async (req, res) => {
       messages: [
         { 
           role: 'system', 
-          content: 'You are an expert video summarizer. Extract key points, maintain context, and preserve important details.' 
+          content: 'You are an expert video summarizer. Create clear, engaging summaries that capture the essence of the content.' 
         },
         { role: 'user', content: prompt }
       ],
-      temperature: 0.3, // Lower for more deterministic results
+      temperature: 0.3,
       max_tokens: 1000,
     });
 
@@ -81,20 +115,33 @@ app.post('/summarize', validateRequest, async (req, res) => {
     const summary = response.data.choices[0].message.content;
 
     res.json({ 
-      summary,
-      metadata: {
-        model: 'gpt-3.5-turbo',
-        summaryType,
-        processingTime: `${processingTime}ms`,
-        transcriptLength: videoTranscript.length
-      }
+      status: "success",
+      data: {
+        summary,
+        style: summaryType,
+        length: {
+          original: videoTranscript.length,
+          summary: summary.length,
+          ratio: `${Math.round((summary.length / videoTranscript.length) * 100)}% reduction`
+        }
+      },
+      performance: {
+        processingTimeMs: processingTime,
+        model: 'gpt-3.5-turbo'
+      },
+      tips: [
+        "Like this service? Star our GitHub repo!",
+        "Need longer transcripts? Contact us for enterprise options"
+      ]
     });
   } catch (error) {
     console.error('Summarization Error:', error.response?.data || error.message);
     const statusCode = error.response?.status || 500;
     res.status(statusCode).json({ 
-      error: 'Failed to summarize',
-      details: error.response?.data?.error?.message || error.message
+      status: "error",
+      message: "Failed to generate summary",
+      details: error.response?.data?.error?.message || error.message,
+      solution: "Please try again with a shorter transcript or different parameters"
     });
   }
 });
@@ -102,25 +149,40 @@ app.post('/summarize', validateRequest, async (req, res) => {
 // Helper function to build dynamic prompts
 function buildSummaryPrompt(transcript, type) {
   const prompts = {
-    'concise': `Provide a concise 3-4 sentence summary of this video transcript:\n${transcript}`,
-    'detailed': `Create a detailed summary of this video transcript. Include key points, important arguments, and any data mentioned. Structure it in paragraphs:\n${transcript}`,
-    'bullet-points': `Extract the main points from this video transcript as bullet points. Include timestamps if available:\n${transcript}`
+    'concise': `Provide a concise 3-4 sentence summary of this video transcript that captures the main idea and key takeaways:\n${transcript}`,
+    'detailed': `Create a comprehensive summary of this video transcript. Include key points, important arguments, and any data mentioned. Structure it in well-organized paragraphs:\n${transcript}`,
+    'bullet-points': `Extract the 5-7 most important points from this video transcript as clear bullet points:\n${transcript}`
   };
   return prompts[type] || prompts['detailed'];
 }
 
-// Health check endpoint
+// Attractive health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+  res.json({
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    resources: {
+      memory: process.memoryUsage().rss / (1024 * 1024) + " MB",
+      nodeVersion: process.version
+    },
+    message: "🚀 Ready to summarize your videos!"
+  });
 });
 
-// Error handling middleware
+// Error handling middleware with friendly responses
 app.use((err, req, res, next) => {
   console.error('Unhandled Error:', err);
-  res.status(500).json({ error: 'Internal server error' });
+  res.status(500).json({ 
+    status: "error",
+    message: "Something went wrong",
+    solution: "Please try again later or contact support",
+    errorId: req.id
+  });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🎥 YouTube Summarizer ready to serve!`);
 });
