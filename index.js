@@ -1,85 +1,89 @@
 require('dotenv').config();
 const express = require('express');
-const { Configuration, OpenAIApi } = require('openai');
+const axios = require('axios');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const { body, validationResult } = require('express-validator');
+const morgan = require('morgan');
+const compression = require('compression');
 
 const app = express();
 
-// Security middleware
+// ============== Configuration ==============
+const CONFIG = {
+  MODEL: 'facebook/bart-large-cnn',
+  MAX_INPUT_LENGTH: 15000,
+  MIN_INPUT_LENGTH: 50,
+  RATE_LIMIT: {
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 150, // Increased limit
+  },
+  SUPPORTED_SUMMARY_TYPES: ['short', 'medium', 'long'],
+  DEFAULT_SUMMARY_TYPE: 'medium'
+};
+
+// ============== Middleware ==============
 app.use(helmet());
+app.use(compression());
 app.use(express.json({ limit: '10kb' }));
+app.use(morgan('combined')); // HTTP request logging
 
-// Rate limiting (more generous for free tier)
+// Enhanced rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 150, // Increased from 100 to be more generous
-  standardHeaders: true,
-  legacyHeaders: false,
+  ...CONFIG.RATE_LIMIT,
   message: {
-    status: "error",
-    message: "Too many requests, please try again later."
-  }
+    status: 'error',
+    message: 'Too many requests. Please try again later.'
+  },
+  skip: (req) => req.ip === '::1' // Skip rate limiting for localhost
 });
-app.use(limiter);
+app.use('/summarize', limiter);
 
-// Welcome route with attractive response
+// ============== Routes ==============
+
+// Enhanced root endpoint
 app.get('/', (req, res) => {
   res.json({
-    status: "success",
-    message: "🎥 YouTube Video Summarizer API",
-    description: "Free AI-powered video summarization service",
+    status: 'success',
+    message: '🚀 BART-powered Video Summarizer API',
+    version: '1.0.0',
     endpoints: {
       summarize: {
-        method: "POST",
-        path: "/summarize",
-        description: "Get AI-generated summaries from video transcripts",
+        method: 'POST',
+        path: '/summarize',
+        description: 'Generate summaries using BART model',
         parameters: {
-          videoTranscript: "string (50-15000 chars)",
-          summaryType: "optional (concise|detailed|bullet-points)"
+          videoTranscript: `string (${CONFIG.MIN_INPUT_LENGTH}-${CONFIG.MAX_INPUT_LENGTH} chars)`,
+          summaryType: `optional (${CONFIG.SUPPORTED_SUMMARY_TYPES.join('|')})`
         }
       },
       health: {
-        method: "GET",
-        path: "/health",
-        description: "Check API status"
+        method: 'GET',
+        path: '/health',
+        description: 'Check API status'
       }
-    },
-    tips: [
-      "Keep transcripts under 15,000 characters for best results",
-      "Try different summaryTypes to get varied outputs",
-      "This is a free service with rate limits (150 requests/15 mins)"
-    ]
+    }
   });
 });
 
-// Initialize OpenAI
-let openai;
-try {
-  const configuration = new Configuration({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
-  openai = new OpenAIApi(configuration);
-} catch (error) {
-  console.error('OpenAI Configuration Error:', error.message);
-  process.exit(1);
-}
-
-// Validation middleware
+// Enhanced validation middleware
 const validateRequest = [
   body('videoTranscript')
     .isString().withMessage('Transcript must be a string')
     .trim()
-    .isLength({ min: 50, max: 15000 }).withMessage('Transcript must be between 50 and 15000 characters'),
+    .isLength({ 
+      min: CONFIG.MIN_INPUT_LENGTH, 
+      max: CONFIG.MAX_INPUT_LENGTH 
+    }).withMessage(`Transcript must be between ${CONFIG.MIN_INPUT_LENGTH} and ${CONFIG.MAX_INPUT_LENGTH} characters`),
   body('summaryType')
     .optional()
-    .isIn(['concise', 'detailed', 'bullet-points']).withMessage('Invalid summary type'),
+    .isIn(CONFIG.SUPPORTED_SUMMARY_TYPES)
+    .withMessage(`Invalid summary type. Supported types: ${CONFIG.SUPPORTED_SUMMARY_TYPES.join(', ')}`),
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ 
-        status: "error",
+      return res.status(400).json({
+        status: 'error',
         errors: errors.array().map(err => ({
           param: err.param,
           message: err.msg
@@ -92,97 +96,131 @@ const validateRequest = [
 
 // Enhanced summarization endpoint
 app.post('/summarize', validateRequest, async (req, res) => {
-  const { videoTranscript, summaryType = 'detailed' } = req.body;
+  const { videoTranscript, summaryType = CONFIG.DEFAULT_SUMMARY_TYPE } = req.body;
 
   try {
-    const prompt = buildSummaryPrompt(videoTranscript, summaryType);
+    const startTime = process.hrtime();
     
-    const startTime = Date.now();
-    const response = await openai.createChatCompletion({
-      model: 'gpt-3.5-turbo',
-      messages: [
-        { 
-          role: 'system', 
-          content: 'You are an expert video summarizer. Create clear, engaging summaries that capture the essence of the content.' 
+    // Dynamic parameters based on summary type
+    const parameters = getSummaryParameters(summaryType);
+    
+    const response = await axios.post(
+      `https://api-inference.huggingface.co/models/${CONFIG.MODEL}`,
+      {
+        inputs: videoTranscript,
+        parameters
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
+          'Content-Type': 'application/json'
         },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.3,
-      max_tokens: 1000,
-    });
+        timeout: 30000 // 30 seconds timeout
+      }
+    );
 
-    const processingTime = Date.now() - startTime;
-    const summary = response.data.choices[0].message.content;
+    const [seconds, nanoseconds] = process.hrtime(startTime);
+    const processingTimeMs = (seconds * 1000) + (nanoseconds / 1000000);
 
-    res.json({ 
-      status: "success",
+    if (!response.data || !response.data[0]?.summary_text) {
+      throw new Error('Invalid response from Hugging Face API');
+    }
+
+    res.json({
+      status: 'success',
       data: {
-        summary,
-        style: summaryType,
+        summary: response.data[0].summary_text,
+        summaryType,
         length: {
           original: videoTranscript.length,
-          summary: summary.length,
-          ratio: `${Math.round((summary.length / videoTranscript.length) * 100)}% reduction`
+          summary: response.data[0].summary_text.length,
+          ratio: `${Math.round((1 - (response.data[0].summary_text.length / videoTranscript.length)) * 100)}% reduction`
         }
       },
       performance: {
-        processingTimeMs: processingTime,
-        model: 'gpt-3.5-turbo'
-      },
-      tips: [
-        "Like this service? Star our GitHub repo!",
-        "Need longer transcripts? Contact us for enterprise options"
-      ]
+        processingTimeMs: Math.round(processingTimeMs),
+        model: CONFIG.MODEL
+      }
     });
   } catch (error) {
-    console.error('Summarization Error:', error.response?.data || error.message);
-    const statusCode = error.response?.status || 500;
-    res.status(statusCode).json({ 
-      status: "error",
-      message: "Failed to generate summary",
-      details: error.response?.data?.error?.message || error.message,
-      solution: "Please try again with a shorter transcript or different parameters"
+    const errorDetails = error.response?.data || error.message;
+    console.error('Summarization error:', errorDetails);
+
+    let statusCode = 500;
+    let errorMessage = 'Summarization failed';
+    
+    if (error.response?.status === 503) {
+      statusCode = 503;
+      errorMessage = 'Model is currently loading. Please try again in a few seconds.';
+    } else if (error.code === 'ECONNABORTED') {
+      statusCode = 504;
+      errorMessage = 'Request timeout. The model might be processing a large input.';
+    }
+
+    res.status(statusCode).json({
+      status: 'error',
+      message: errorMessage,
+      details: errorDetails,
+      solution: 'Try reducing the input length or try again later'
     });
   }
 });
 
-// Helper function to build dynamic prompts
-function buildSummaryPrompt(transcript, type) {
-  const prompts = {
-    'concise': `Provide a concise 3-4 sentence summary of this video transcript that captures the main idea and key takeaways:\n${transcript}`,
-    'detailed': `Create a comprehensive summary of this video transcript. Include key points, important arguments, and any data mentioned. Structure it in well-organized paragraphs:\n${transcript}`,
-    'bullet-points': `Extract the 5-7 most important points from this video transcript as clear bullet points:\n${transcript}`
+// Helper function for dynamic parameters
+function getSummaryParameters(summaryType) {
+  const parameters = {
+    short: {
+      max_length: 100,
+      min_length: 30,
+      do_sample: false
+    },
+    medium: {
+      max_length: 150,
+      min_length: 50,
+      do_sample: false
+    },
+    long: {
+      max_length: 250,
+      min_length: 100,
+      do_sample: false
+    }
   };
-  return prompts[type] || prompts['detailed'];
+  return parameters[summaryType] || parameters[CONFIG.DEFAULT_SUMMARY_TYPE];
 }
 
-// Attractive health check endpoint
+// Enhanced health check
 app.get('/health', (req, res) => {
   res.json({
-    status: "healthy",
+    status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    resources: {
-      memory: process.memoryUsage().rss / (1024 * 1024) + " MB",
-      nodeVersion: process.version
-    },
-    message: "🚀 Ready to summarize your videos!"
+    memoryUsage: `${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB`,
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 
-// Error handling middleware with friendly responses
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    status: 'error',
+    message: 'Endpoint not found',
+    availableEndpoints: ['GET /', 'POST /summarize', 'GET /health']
+  });
+});
+
+// Error handler
 app.use((err, req, res, next) => {
-  console.error('Unhandled Error:', err);
-  res.status(500).json({ 
-    status: "error",
-    message: "Something went wrong",
-    solution: "Please try again later or contact support",
+  console.error('Unhandled error:', err);
+  res.status(500).json({
+    status: 'error',
+    message: 'Internal server error',
     errorId: req.id
   });
 });
 
+// Server startup
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`🎥 YouTube Summarizer ready to serve!`);
+  console.log(`🤖 Using model: ${CONFIG.MODEL}`);
 });
