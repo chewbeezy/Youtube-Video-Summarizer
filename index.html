@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Free AI-powered YouTube video summarizer. Get concise summaries of long videos in seconds.">
+  <meta name="keywords" content="YouTube summarizer, video summary, AI summary, free video summarization">
+  <meta name="author" content="Your Name">
+  <meta property="og:title" content="AI Video Summarizer">
+  <meta property="og:description" content="Get instant summaries of YouTube videos">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://yourdomain.com">
+  <meta property="og:image" content="https://yourdomain.com/images/og-image.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>AI Video Summarizer | Get Concise Video Summaries</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/iconfont/tabler-icons.min.css">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="canonical" href="https://yourdomain.com">
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "AI Video Summarizer",
+      "description": "Free AI-powered YouTube video summarization tool",
+      "url": "https://yourdomain.com",
+      "applicationCategory": "Utility"
+    }
+  </script>
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <a href="/" class="logo">
+        <i class="ti ti-summary"></i>
+        <span>VideoSummarizer</span>
+      </a>
+      <nav class="nav">
+        <a href="#features">Features</a>
+        <a href="#how-it-works">How It Works</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <button class="mobile-menu-button">
+        <i class="ti ti-menu-2"></i>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container">
+        <div class="hero-content">
+          <h1>Get Instant Video Summaries with AI</h1>
+          <p class="subtitle">Paste any YouTube video transcript and get a concise summary in seconds</p>
+          <div class="cta-buttons">
+            <a href="#summarizer" class="btn btn-primary">Try It Free</a>
+            <a href="#how-it-works" class="btn btn-outline">Learn More</a>
+          </div>
+        </div>
+        <div class="hero-image">
+          <img src="images/hero-illustration.svg" alt="AI summarizing video content" width="600" height="400">
+        </div>
+      </div>
+    </section>
+
+    <section id="summarizer" class="summarizer-section">
+      <div class="container">
+        <h2>Video Summarizer</h2>
+        <div class="summarizer-box">
+          <div class="input-section">
+            <label for="video-url">YouTube Video URL (optional)</label>
+            <div class="url-input-group">
+              <input type="text" id="video-url" placeholder="https://www.youtube.com/watch?v=...">
+              <button id="fetch-transcript" class="btn btn-secondary">Fetch Transcript</button>
+            </div>
+            <label for="video-transcript">Or paste your transcript directly</label>
+            <textarea id="video-transcript" placeholder="Paste video transcript here (50-15,000 characters)..."></textarea>
+            <div class="options-row">
+              <div class="form-group">
+                <label for="summary-type">Summary Type</label>
+                <select id="summary-type">
+                  <option value="concise">Concise (3-4 sentences)</option>
+                  <option value="detailed" selected>Detailed (paragraphs)</option>
+                  <option value="bullet-points">Bullet Points</option>
+                </select>
+              </div>
+              <button id="summarize-btn" class="btn btn-primary">
+                <span>Summarize</span>
+                <i class="ti ti-spinner hidden" id="loading-spinner"></i>
+              </button>
+            </div>
+          </div>
+          <div class="output-section">
+            <div class="output-header">
+              <h3>AI Summary</h3>
+              <div class="copy-btn" id="copy-btn" title="Copy to clipboard">
+                <i class="ti ti-copy"></i>
+              </div>
+            </div>
+            <div class="summary-output" id="summary-output">
+              <div class="placeholder">
+                <i class="ti ti-sparkles"></i>
+                <p>Your AI-generated summary will appear here</p>
+              </div>
+            </div>
+            <div class="summary-meta hidden" id="summary-meta">
+              <div class="meta-item">
+                <i class="ti ti-article"></i>
+                <span>Original: <span id="original-length">0</span> chars</span>
+              </div>
+              <div class="meta-item">
+                <i class="ti ti-file-text"></i>
+                <span>Summary: <span id="summary-length">0</span> chars</span>
+              </div>
+              <div class="meta-item">
+                <i class="ti ti-compress"></i>
+                <span>Reduced by <span id="reduction-percent">0</span>%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="features-section">
+      <div class="container">
+        <h2>Powerful Features</h2>
+        <div class="features-grid">
+          <div class="feature-card">
+            <div class="feature-icon">
+              <i class="ti ti-bolt"></i>
+            </div>
+            <h3>Lightning Fast</h3>
+            <p>Get summaries in seconds with our powerful AI technology</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">
+              <i class="ti ti-crystal-ball"></i>
+            </div>
+            <h3>Multiple Formats</h3>
+            <p>Choose from concise, detailed, or bullet-point summaries</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">
+              <i class="ti ti-lock"></i>
+            </div>
+            <h3>Privacy Focused</h3>
+            <p>Your data is never stored or shared with third parties</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="how-it-works" class="how-it-works-section">
+      <div class="container">
+        <h2>How It Works</h2>
+        <div class="steps">
+          <div class="step">
+            <div class="step-number">1</div>
+            <div class="step-content">
+              <h3>Provide Video Content</h3>
+              <p>Enter a YouTube URL or paste your video transcript directly</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-number">2</div>
+            <div class="step-content">
+              <h3>Choose Summary Style</h3>
+              <p>Select your preferred summary format and length</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-number">3</div>
+            <div class="step-content">
+              <h3>Get Instant Summary</h3>
+              <p>Our AI processes the content and delivers a concise summary</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="faq" class="faq-section">
+      <div class="container">
+        <h2>Frequently Asked Questions</h2>
+        <div class="faq-list">
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Is this service really free?</span>
+              <i class="ti ti-chevron-down"></i>
+            </button>
+            <div class="faq-answer">
+              <p>Yes! Our basic summarization service is completely free to use. We may offer premium features in the future, but core functionality will remain free.</p>
+            </div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>What's the maximum transcript length?</span>
+              <i class="ti ti-chevron-down"></i>
+            </button>
+            <div class="faq-answer">
+              <p>We currently support transcripts between 50 and 15,000 characters. For longer videos, consider summarizing in sections.</p>
+            </div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>How accurate are the summaries?</span>
+              <i class="ti ti-chevron-down"></i>
+            </button>
+            <div class="faq-answer">
+              <p>Our AI produces highly accurate summaries that capture key points, but we recommend reviewing important summaries for critical applications.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-brand">
+          <a href="/" class="logo">
+            <i class="ti ti-summary"></i>
+            <span>VideoSummarizer</span>
+          </a>
+          <p class="tagline">AI-powered video summarization made simple</p>
+        </div>
+        <div class="footer-links">
+          <div class="link-group">
+            <h4>Product</h4>
+            <a href="#features">Features</a>
+            <a href="#how-it-works">How It Works</a>
+            <a href="#faq">FAQ</a>
+          </div>
+          <div class="link-group">
+            <h4>Legal</h4>
+            <a href="/privacy">Privacy Policy</a>
+            <a href="/terms">Terms of Service</a>
+          </div>
+          <div class="link-group">
+            <h4>Connect</h4>
+            <a href="https://twitter.com/yourhandle">Twitter</a>
+            <a href="https://github.com/yourrepo">GitHub</a>
+            <a href="mailto:contact@yourdomain.com">Contact</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; <span id="current-year"></span> VideoSummarizer. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
