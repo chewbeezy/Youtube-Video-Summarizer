@@ -20,6 +20,11 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
+// Root route to handle GET /
+app.get('/', (req, res) => {
+  res.send('Welcome to the Youtube Video Summarizer API! Use the /summarize endpoint.');
+});
+
 // Initialize OpenAI with error handling
 let openai;
 try {
